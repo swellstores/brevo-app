@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json.swell.store/setting.json",
+  "label": "Brevo",
+  "description": "Sync customers to Brevo contacts and send cart and order events for email and SMS marketing automation. Create an API key in Brevo → Settings → SMTP & API → API Keys.",
+  "actions": [
+    {
+      "id": "test_connection",
+      "label": "Test connection",
+      "function": "test-connection",
+      "loading_label": "Testing…",
+      "hint": "Checks the API key and the contact list"
+    },
+    {
+      "id": "import_customers",
+      "label": "Import existing customers",
+      "function": "import-customers",
+      "loading_label": "Starting import…",
+      "hint": "Creates or updates a Brevo contact for every customer account",
+      "conditions": { "sync_contacts": { "$ne": false } },
+      "modal": {
+        "title": "Import existing customers",
+        "description": "Creates or updates a Brevo contact for every customer account, using the current settings. Customers who opted in to email are added to the email list. The import runs in the background; large stores can take several minutes.",
+        "submit_label": "Start import",
+        "fields": [
+          {
+            "id": "only_optin",
+            "label": "Only customers who opted in to email",
+            "type": "boolean",
+            "ui": "checkbox",
+            "default": false
+          }
+        ]
+      }
+    }
+  ],
+  "fields": [
+    {
+      "id": "api_key",
+      "label": "API key",
+      "type": "secret",
+      "required": true,
+      "description": "Brevo → Settings → SMTP & API → API Keys. Starts with xkeysib-."
+    },
+    {
+      "id": "enabled",
+      "label": "Enabled",
+      "type": "boolean",
+      "ui": "toggle",
+      "default": true,
+      "description": "Turns off all syncing without uninstalling the app"
+    },
+    {
+      "type": "field_group",
+      "label": "Contacts",
+      "description": "Customer accounts are created or updated as Brevo contacts when they are created or changed in Swell.",
+      "fields": [
+        {
+          "id": "sync_contacts",
+          "label": "Sync customer accounts",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Create and update a Brevo contact for each customer account"
+        },
+        {
+          "id": "list_id",
+          "label": "Email list ID",
+          "type": "short_text",
+          "description": "Numeric ID of the Brevo list for customers who opt in to email marketing (Contacts → Lists → #ID). Leave empty to sync contacts without adding them to a list."
+        },
+        {
+          "id": "remove_on_optout",
+          "label": "Remove from list on opt-out",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Remove the contact from the email list when the customer turns off email marketing"
+        },
+        {
+          "id": "sync_sms",
+          "label": "Sync phone for SMS opt-ins",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": false,
+          "description": "Set the contact's SMS attribute when the customer opts in to SMS marketing and has a valid phone number"
+        },
+        {
+          "type": "field_row",
+          "fields": [
+            {
+              "id": "firstname_attribute",
+              "label": "First name attribute",
+              "type": "short_text",
+              "default": "FIRSTNAME",
+              "admin_span": 2,
+              "description": "Brevo contact attribute for the first name"
+            },
+            {
+              "id": "lastname_attribute",
+              "label": "Last name attribute",
+              "type": "short_text",
+              "default": "LASTNAME",
+              "admin_span": 2,
+              "description": "Brevo contact attribute for the last name"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "field_group",
+      "label": "Events",
+      "description": "Events are sent to Brevo with the customer's email and can trigger automations.",
+      "fields": [
+        {
+          "id": "event_checkout_started",
+          "label": "checkout_started",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Sent when a cart is created"
+        },
+        {
+          "id": "event_cart_abandoned",
+          "label": "cart_abandoned",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Sent when a cart is abandoned"
+        },
+        {
+          "id": "event_order_submitted",
+          "label": "order_submitted",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Sent when an order is placed"
+        },
+        {
+          "id": "event_order_fulfilled",
+          "label": "order_fulfilled",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Sent when an order is delivered"
+        },
+        {
+          "id": "event_order_canceled",
+          "label": "order_canceled",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": true,
+          "description": "Sent when an order is canceled"
+        }
+      ]
+    },
+    {
+      "type": "field_group",
+      "label": "eCommerce",
+      "fields": [
+        {
+          "id": "sync_orders",
+          "label": "Sync orders to Brevo eCommerce",
+          "type": "boolean",
+          "ui": "toggle",
+          "default": false,
+          "description": "Send orders to Brevo eCommerce for revenue reporting and segmentation. Activate eCommerce in Brevo first (Brevo → eCommerce)."
+        }
+      ]
+    }
+  ]
+}

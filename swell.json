@@ -1,0 +1,35 @@
+{
+  "description": "Brevo email and SMS marketing integration",
+  "id": "brevo",
+  "name": "Brevo",
+  "type": "integration",
+  "version": "1.0.0",
+  "permissions": [],
+  "support_email": "support@swell.is",
+  "images": [
+    {
+      "id": "1-settings",
+      "title": "Settings",
+      "description": "Connect your Brevo account with an API key and choose what to sync",
+      "image_src": "assets/screenshots/1-settings.png"
+    },
+    {
+      "id": "2-contacts",
+      "title": "Contacts",
+      "description": "Customers become Brevo contacts, and email opt-ins join your list",
+      "image_src": "assets/screenshots/2-contacts.png"
+    },
+    {
+      "id": "3-events",
+      "title": "Events",
+      "description": "Trigger Brevo automations from checkout_started, cart_abandoned, order_submitted, order_fulfilled and order_canceled",
+      "image_src": "assets/screenshots/3-events.png"
+    },
+    {
+      "id": "4-ecommerce",
+      "title": "eCommerce",
+      "description": "Send orders to Brevo eCommerce for revenue reporting and segmentation",
+      "image_src": "assets/screenshots/4-ecommerce.png"
+    }
+  ]
+}
