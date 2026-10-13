@@ -7,6 +7,7 @@ import {
   loadSettings,
   brevoRequest,
   handleError,
+  handleEventError,
   isContactChange,
   getSmsPhone,
   buildContactAttributes,
@@ -206,6 +207,28 @@ describe("brevoRequest", () => {
     expect(err).toBeInstanceOf(BrevoError);
     expect(err.status).toBe(0);
     expect(err.retryable).toBe(true);
+  });
+});
+
+describe("handleEventError", () => {
+  it("rethrows a rate limit, which Brevo did not record", () => {
+    const err = new BrevoError(429, undefined, "slow down");
+    expect(() => handleEventError("x", err)).toThrow(err);
+  });
+
+  it.each([0, 500, 503])("logs status %i without retrying", (status) => {
+    handleEventError("cart.abandoned for cart c1", new BrevoError(status, undefined, "down"));
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Brevo: cart.abandoned for cart c1 failed (not retried, Brevo may have recorded it):",
+      `Brevo ${status}: down`,
+    );
+  });
+
+  it("logs rejected events and other errors", () => {
+    handleEventError("x", new BrevoError(400, undefined, "bad"));
+    handleEventError("y", new TypeError("boom"));
+    expect(errorSpy).toHaveBeenCalledWith("Brevo: x failed:", "Brevo 400: bad");
+    expect(errorSpy).toHaveBeenCalledWith("Brevo: y failed:", "boom");
   });
 });
 
@@ -592,6 +615,13 @@ describe("testConnection", () => {
     mockFetch({ status: 200, body: { companyName: "Acme" } }, new Error("connection reset"));
     expect(await testConnection(makeSettings())).toBe(
       "Connected to Brevo as Acme. Email list #7 could not be checked, try again: Brevo 0 network_error: connection reset",
+    );
+  });
+
+  it("doesn't say try again for a permanent error", async () => {
+    mockFetch({ status: 200, body: { companyName: "Acme" } }, { status: 400, body: { message: "Invalid list id" } });
+    expect(await testConnection(makeSettings())).toBe(
+      "Connected to Brevo as Acme. Email list #7 could not be checked: Brevo 400: Invalid list id",
     );
   });
 

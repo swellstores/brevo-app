@@ -148,6 +148,18 @@ export function handleError(label: string, err: unknown): void {
   console.error(`Brevo: ${label} failed:`, err instanceof Error ? err.message : err);
 }
 
+// Brevo events have no idempotency key, so an event is sent at most once. Only a 429 is rethrown for a retry:
+// Brevo rejected the request without recording it. After a network error, timeout or 5xx Brevo may already have
+// recorded the event, and a retry could start the customer's automation twice, so those are logged, not retried.
+export function handleEventError(label: string, err: unknown): void {
+  if (err instanceof BrevoError && err.status === 429) {
+    throw err;
+  }
+  const reason = err instanceof Error ? err.message : err;
+  const note = err instanceof BrevoError && err.retryable ? ' (not retried, Brevo may have recorded it)' : '';
+  console.error(`Brevo: ${label} failed${note}:`, reason);
+}
+
 // true when the event may change the Brevo contact
 export function isContactChange(eventType: string | undefined, data: any): boolean {
   if (eventType !== 'account.updated') {
@@ -389,7 +401,9 @@ export async function testConnection(settings: BrevoSettings): Promise<string> {
         notes.push(`Email list #${settings.list_id} was not found in Brevo.`);
       } else {
         const reason = err instanceof Error ? err.message : String(err);
-        notes.push(`Email list #${settings.list_id} could not be checked, try again: ${reason}`);
+        // only temporary failures are worth running again; other errors say what to fix
+        const retry = err instanceof BrevoError && err.retryable ? ', try again' : '';
+        notes.push(`Email list #${settings.list_id} could not be checked${retry}: ${reason}`);
       }
     }
   } else {

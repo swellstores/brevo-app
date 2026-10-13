@@ -169,11 +169,25 @@ describe.each(eventCases)("$name", ({ handler, config, path, events, event, brev
     expect(errorSpy).toHaveBeenCalled();
   });
 
-  it("throws retryable Brevo errors so Swell retries", async () => {
+  it("throws a rate limit so Swell retries the event", async () => {
     mockFetch({ status: 429 });
     const { req } = request({ id: "rec_1", $event: { type: event } }, makeRecord());
 
     await expect(handler(req)).rejects.toMatchObject({ status: 429 });
+  });
+
+  it.each([
+    ["a server error", { status: 503, body: { message: "down" } }],
+    ["a timeout", new Error("The operation was aborted due to timeout")],
+  ])("does not retry the event after %s, Brevo may have recorded it", async (_, reply) => {
+    mockFetch(reply as any);
+    const { req } = request({ id: "rec_1", $event: { type: event } }, makeRecord());
+
+    await expect(handler(req)).resolves.toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledWith(
+      `Brevo: ${event} for ${event.split(".")[0]} rec_1 failed (not retried, Brevo may have recorded it):`,
+      expect.any(String),
+    );
   });
 });
 

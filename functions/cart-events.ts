@@ -1,4 +1,4 @@
-import { handleError, loadSettings, trackEvent } from './lib/brevo';
+import { handleEventError, loadSettings, trackEvent } from './lib/brevo';
 
 export const config: SwellConfig = {
   description: 'Track cart checkout events in Brevo',
@@ -29,6 +29,6 @@ export default async function (req: SwellRequest) {
   try {
     await trackEvent(eventType, cart, settings);
   } catch (err) {
-    handleError(`${eventType} for cart ${data.id}`, err);
+    handleEventError(`${eventType} for cart ${data.id}`, err);
   }
 }

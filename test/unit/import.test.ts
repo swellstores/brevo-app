@@ -105,15 +105,24 @@ describe("importToList", () => {
 
   it("does nothing without accounts or list", async () => {
     const fetchMock = mockFetch();
-    expect(await importToList([], makeSettings())).toBe(0);
-    expect(await importToList([optedIn("a")], makeSettings({ list_id: null }))).toBe(0);
+    expect(await importToList([], makeSettings())).toBe(true);
+    expect(await importToList([optedIn("a")], makeSettings({ list_id: null }))).toBe(true);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("counts the page as failed when Brevo rejects the job", async () => {
-    mockFetch({ status: 404, body: { message: "List not found" } });
-    expect(await importToList([optedIn("a"), optedIn("b")], makeSettings())).toBe(2);
-    expect(errorSpy).toHaveBeenCalledWith("Brevo: import job for 2 contacts failed:", "Brevo 404: List not found");
+  it("returns false when Brevo rejects the job", async () => {
+    mockFetch({ status: 400, body: { message: "Invalid jsonBody" } });
+    expect(await importToList([optedIn("a"), optedIn("b")], makeSettings())).toBe(false);
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Brevo: import job for 2 contacts rejected, syncing them one by one:",
+      "Brevo 400: Invalid jsonBody",
+    );
+  });
+
+  it("throws errors that don't come from Brevo", async () => {
+    mockFetch({ status: 202, body: { processId: 1 } });
+    const broken = { ...optedIn("a"), get first_name() { throw new TypeError("boom"); } };
+    await expect(importToList([broken], makeSettings())).rejects.toThrow("boom");
   });
 
   it("throws retryable failures so the page is retried", async () => {
@@ -134,6 +143,12 @@ describe("upsertEach", () => {
     mockFetch({ status: 400, body: { message: "Invalid email" } }, { status: 204 });
     expect(await upsertEach([notOptedIn("bad"), notOptedIn("ok")], makeSettings())).toBe(1);
     expect(errorSpy).toHaveBeenCalledWith("Brevo: import of bad@example.com failed:", "Brevo 400: Invalid email");
+  });
+
+  it("throws errors that don't come from Brevo", async () => {
+    mockFetch({ status: 204 });
+    const broken = { ...notOptedIn("a"), get first_name() { throw new TypeError("boom"); } };
+    await expect(upsertEach([broken], makeSettings())).rejects.toThrow("boom");
   });
 
   it("throws retryable failures so the page is retried", async () => {
@@ -157,15 +172,20 @@ describe("importPage", () => {
     ]);
   });
 
-  it("continues with one-by-one upserts when the import job is rejected", async () => {
-    const fetchMock = mockFetch({ status: 400, body: { message: "bad list" } }, { status: 204 });
+  it("syncs the job's accounts one by one when Brevo rejects the import job", async () => {
+    const fetchMock = mockFetch({ status: 400, body: { message: "Invalid jsonBody" } }, { status: 204 });
     expect(await importPage([optedIn("a"), optedIn("b"), notOptedIn("c")], makeSettings(), false)).toEqual({
       imported: 0,
-      upserted: 1,
+      upserted: 3,
       skipped: 0,
-      failed: 2,
+      failed: 0,
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const calls = fetchMock.mock.calls.map(callOf);
+    expect(calls.map((c) => c.url)).toEqual([
+      "https://api.brevo.com/v3/contacts/import",
+      ...Array(3).fill("https://api.brevo.com/v3/contacts"),
+    ]);
+    expect(calls[1].body).toMatchObject({ email: "a@example.com", listIds: [7] });
   });
 
   it("subtracts failures from upserted", async () => {

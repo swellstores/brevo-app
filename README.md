@@ -66,8 +66,9 @@ With **Sync orders to Brevo eCommerce** on, `order-events.ts` also sends the ord
 | `coupons`       | `[coupon_code]` when set                       |
 
 Order sync runs even if the matching event toggle is off, and an event failure does not stop the order sync (or the other way round).
-The order is synced before the event is sent. When Brevo is unavailable (network error, HTTP 429 or 5xx), Swell retries the
-function: a retry repeats the order sync, which updates the same order, but never re-sends an event that already went through.
+The order is synced before the event is sent. A network error, HTTP 429 or 5xx on the order sync is rethrown before the event
+goes out, so Swell retries the function. The event itself is retried only on HTTP 429 (see **Event delivery** under Limits);
+a retry repeats the order sync, which updates the same order.
 
 ### Import existing customers
 
@@ -87,9 +88,12 @@ customer account that already exists in Swell. It runs in the background; the da
 - Other accounts, and all accounts when no list is set, are created or updated one by one, 5 at a time, exactly like contact sync
   (no list for customers without opt-in).
 - The modal option **Only customers who opted in to email** skips accounts without `email_optin: true`.
-- Accounts without an email are skipped. Contacts Brevo rejects one by one (e.g. invalid email) are logged and counted as failed.
-  If Brevo rejects a page's import job (HTTP 4xx other than 429, e.g. the list was deleted), the page's opted-in accounts are
-  logged and counted as failed. In both cases the import continues.
+- Accounts without an email are skipped. Contacts Brevo rejects one by one (HTTP 4xx other than 429, e.g. invalid email) are
+  logged and counted as failed, and the import continues.
+- If Brevo rejects a page's import job (HTTP 4xx other than 429), its opted-in accounts are created or updated one by one
+  instead, with the list, and counted as synced one by one or failed.
+- Errors that don't come from Brevo (bugs in the app) are not counted as failed: they fail the page step, so the workflow
+  retries it and then fails the run.
 - When it finishes, the workflow logs and returns the totals: added to list (queued in import jobs), synced one by one, skipped and failed.
 - The action is hidden while **Sync customer accounts** is off. Running it again is safe: contacts are updated, not duplicated.
 
@@ -97,7 +101,7 @@ customer account that already exists in Swell. It runs in the background; the da
 
 **Apps → Brevo → Actions → Test connection** (`functions/test-connection.ts`) checks the API key (`GET /v3/account`) and the
 email list (`GET /v3/contacts/lists/{id}`) and shows the account name and list name. The list is reported as not found only on HTTP 404;
-other errors (e.g. rate limit or network) are shown with Brevo's message.
+other errors are shown with Brevo's message, with "try again" only for temporary ones (network error, HTTP 429 or 5xx).
 
 A 401 whose message mentions an IP address (or `authorised_ips`) comes from Brevo's
 [Authorized IPs](https://app.brevo.com/security/authorised_ips) check, not a bad key (`BrevoError.ipBlocked` in
@@ -184,10 +188,13 @@ Settings actions (`actions` in `settings/brevo.json`):
 - **Import of very large stores.** Each page of 100 accounts is one workflow step.
 - **Workflows don't run under `swell app dev`.** The import always runs the pushed version.
 - **Guest carts without email are skipped.** Brevo needs an identifier, so carts and orders with no linked account email send no event or order.
-- **No event de-duplication.** Brevo events have no unique ID; if Swell redelivers an event (for example after a retry), Brevo records it again.
-  eCommerce orders are keyed by order number, so resending an order updates it.
-- **Retries.** Network errors, HTTP 429 and 5xx responses are rethrown so Swell retries the function. Other errors (invalid data, bad API key)
-  are logged with `console.error` and dropped.
+- **Event delivery is at most once.** Brevo events have no unique ID, so a retry after Brevo recorded an event would send it
+  again and could start an automation twice. Events are retried only on HTTP 429, which Brevo rejects without recording.
+  After a network error, timeout or 5xx the event is logged as `not retried, Brevo may have recorded it` and isn't sent again,
+  so it can be lost (`handleEventError` in `functions/lib/brevo.ts`). If Swell itself redelivers an event, for example after the
+  function times out, Brevo records it again. eCommerce orders are keyed by order number, so resending an order updates it.
+- **Retries.** For contacts and eCommerce orders, network errors, HTTP 429 and 5xx responses are rethrown so Swell retries the
+  function. Other errors (invalid data, bad API key) are logged with `console.error` and dropped.
 - **Checkout Started** fires on `cart.created`, when the cart record is first created, not on a later checkout step.
 - **One list.** All email opt-ins go to one list; SMS opt-ins are synced as the `SMS` attribute, not to a separate list.
 - **Opt-out removes from the list only.** The contact is not blocklisted in Brevo; Brevo's own unsubscribe handling is unchanged.

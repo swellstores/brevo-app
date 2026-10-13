@@ -70,12 +70,11 @@ export function partitionAccounts(accounts: any[], settings: BrevoSettings, only
   return { toImport, toUpsert, skipped };
 }
 
-// add opted-in accounts to the list with one Brevo import job; returns the number that failed.
-// Retryable errors fail the step so the workflow retries the page; other errors (e.g. the list was deleted)
-// count the page's accounts as failed and the import continues, like the one-by-one path.
-export async function importToList(accounts: any[], settings: BrevoSettings): Promise<number> {
+// add opted-in accounts to the list with one Brevo import job; returns false when Brevo rejected the job.
+// Retryable errors fail the step so the workflow retries the page; errors that aren't from Brevo (bugs) are thrown too.
+export async function importToList(accounts: any[], settings: BrevoSettings): Promise<boolean> {
   if (!accounts.length || !settings.list_id) {
-    return 0;
+    return true;
   }
   let result: any;
   try {
@@ -90,20 +89,20 @@ export async function importToList(accounts: any[], settings: BrevoSettings): Pr
       disableNotification: true,
     });
   } catch (err) {
-    if (err instanceof BrevoError && err.retryable) {
+    if (!(err instanceof BrevoError) || err.retryable) {
       throw err;
     }
     console.error(
-      `Brevo: import job for ${accounts.length} contacts failed:`,
-      err instanceof Error ? err.message : err,
+      `Brevo: import job for ${accounts.length} contacts rejected, syncing them one by one:`,
+      err.message,
     );
-    return accounts.length;
+    return false;
   }
   console.log(`Brevo: import job ${result?.processId} queued for ${accounts.length} contacts`);
-  return 0;
+  return true;
 }
 
-// upsert accounts one by one; returns the number that failed with a non-retryable error
+// upsert accounts one by one; returns the number Brevo rejected with a non-retryable error
 export async function upsertEach(accounts: any[], settings: BrevoSettings): Promise<number> {
   let failed = 0;
   for (let i = 0; i < accounts.length; i += CONCURRENCY) {
@@ -113,8 +112,8 @@ export async function upsertEach(accounts: any[], settings: BrevoSettings): Prom
       if (result.status === 'fulfilled') {
         return;
       }
-      // retryable errors fail the step so the workflow retries the page
-      if (result.reason instanceof BrevoError && result.reason.retryable) {
+      // retryable errors fail the step so the workflow retries the page; errors that aren't from Brevo are bugs
+      if (!(result.reason instanceof BrevoError) || result.reason.retryable) {
         throw result.reason;
       }
       failed++;
@@ -127,12 +126,14 @@ export async function upsertEach(accounts: any[], settings: BrevoSettings): Prom
 // sync one page of accounts to Brevo
 export async function importPage(accounts: any[], settings: BrevoSettings, onlyOptin: boolean): Promise<ImportStats> {
   const { toImport, toUpsert, skipped } = partitionAccounts(accounts, settings, onlyOptin);
-  const importFailed = await importToList(toImport, settings);
-  const upsertFailed = await upsertEach(toUpsert, settings);
+  // when Brevo rejects the import job, its accounts are synced one by one instead, like contact sync
+  const queued = await importToList(toImport, settings);
+  const toSync = queued ? toUpsert : [...toImport, ...toUpsert];
+  const failed = await upsertEach(toSync, settings);
   return {
-    imported: toImport.length - importFailed,
-    upserted: toUpsert.length - upsertFailed,
+    imported: queued ? toImport.length : 0,
+    upserted: toSync.length - failed,
     skipped,
-    failed: importFailed + upsertFailed,
+    failed,
   };
 }

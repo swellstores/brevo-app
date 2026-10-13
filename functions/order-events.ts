@@ -1,4 +1,4 @@
-import { handleError, loadSettings, syncOrder, trackEvent } from './lib/brevo';
+import { handleError, handleEventError, loadSettings, syncOrder, trackEvent } from './lib/brevo';
 
 export const config: SwellConfig = {
   description: 'Track order lifecycle events and sync orders in Brevo',
@@ -28,7 +28,7 @@ export default async function (req: SwellRequest) {
 
   // event and order sync are independent: one failing does not skip the other.
   // The order sync is an upsert, so it runs first: a retryable failure there is thrown before the event
-  // is sent, and a retry after a failed event only repeats the upsert. The event is never sent twice.
+  // is sent, and a retry only repeats the upsert. The event is retried only on a 429 (see handleEventError).
   try {
     await syncOrder(order, settings);
   } catch (err) {
@@ -38,6 +38,6 @@ export default async function (req: SwellRequest) {
   try {
     await trackEvent(eventType, order, settings);
   } catch (err) {
-    handleError(`${eventType} for order ${data.id}`, err);
+    handleEventError(`${eventType} for order ${data.id}`, err);
   }
 }
