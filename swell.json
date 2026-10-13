@@ -6,6 +6,9 @@
 	"version": "1.0.0",
 	"permissions": [],
 	"support_email": "support@swell.is",
+	"documentation_url": "https://developers.swell.is/app-guides/brevo",
+	"price_external": true,
+	"repository_url": "https://github.com/swellstores/brevo-app",
 	"integrations": [
 		"brevo"
 	],
@@ -13,7 +16,7 @@
 		{
 			"id": "settings",
 			"title": "Connected in a few minutes",
-			"description": "Paste your Brevo API key, turn the app on, and you're syncing.",
+			"description": "Paste your Brevo API key, save the settings, and you're syncing.",
 			"image_src": "assets/screenshots/1-settings.png"
 		},
 		{
@@ -25,7 +28,7 @@
 		{
 			"id": "import-customers",
 			"title": "Bring in every customer",
-			"description": "Import existing customer accounts as Brevo contacts in one click.",
+			"description": "Import existing customer accounts as Brevo contacts from the Actions menu.",
 			"image_src": "assets/screenshots/3-import-customers.png"
 		},
 		{
