@@ -11,17 +11,21 @@ export default class ImportCustomers {
   async run(req: SwellWorkflowRequest, step: SwellWorkflowStep) {
     const onlyOptin = (req.data as any)?.only_optin === true;
 
-    const rawSettings = await step.do('load settings', async () => req.swell.settings());
-    const settings = getSettings(rawSettings);
+    // step output is stored with the run, so keep only flags here, never the API key
+    const check = await step.do('load settings', async () => {
+      const settings = getSettings(await req.swell.settings());
+      return { enabled: settings.enabled, has_api_key: Boolean(settings.api_key) };
+    });
 
-    if (!settings.enabled) {
+    // throw so the run ends as failed instead of completed
+    if (!check.enabled) {
       console.log('Brevo: import skipped, the app is disabled in settings');
-      return { error: 'disabled' };
+      throw new Error('Import not started: the Brevo app is disabled in its settings.');
     }
 
-    if (!settings.api_key) {
+    if (!check.has_api_key) {
       console.error('Brevo: import skipped, missing API key in app settings');
-      return { error: 'missing_api_key' };
+      throw new Error('Import not started: add your Brevo API key in the app settings.');
     }
 
     let totals = emptyStats();
@@ -33,9 +37,14 @@ export default class ImportCustomers {
         `page ${page}`,
         { retries: { limit: 5, delay: '30 seconds', backoff: 'exponential' } },
         async () => {
+          // settings are read in each page so the API key stays out of step output;
           // stop sending if the app was disabled while the import was running
-          if (!getSettings(await req.swell.settings()).enabled) {
+          const settings = getSettings(await req.swell.settings());
+          if (!settings.enabled) {
             return { ...emptyStats(), count: 0, last_id: null, disabled: true };
+          }
+          if (!settings.api_key) {
+            return { ...emptyStats(), count: 0, last_id: null, missing_api_key: true };
           }
           const accounts = await fetchAccounts(req.swell, afterId);
           const stats = await importPage(accounts, settings, onlyOptin);
@@ -43,9 +52,13 @@ export default class ImportCustomers {
         },
       );
 
-      if (result.disabled) {
-        console.log(`Brevo: import stopped at page ${page}, the app was disabled in settings`);
-        return { ...totals, error: 'disabled' };
+      if (result.disabled || result.missing_api_key) {
+        const reason = result.disabled ? 'the app was disabled in settings' : 'the API key was removed from settings';
+        console.log(`Brevo: import stopped at page ${page}, ${reason}`);
+        throw new Error(
+          `Import stopped: ${reason}. Before stopping: added to list ${totals.imported}, ` +
+            `synced ${totals.upserted}, skipped ${totals.skipped}, failed ${totals.failed}.`,
+        );
       }
 
       totals = addStats(totals, result);

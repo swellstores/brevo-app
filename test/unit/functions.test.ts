@@ -178,7 +178,7 @@ describe.each(eventCases)("$name", ({ handler, config, path, events, event, brev
 });
 
 describe("order-events order sync", () => {
-  it("sends the event and syncs the order when order sync is on", async () => {
+  it("syncs the order, then sends the event, when order sync is on", async () => {
     const fetchMock = mockFetch({ status: 204 });
     const { req } = request({ id: "rec_1", $event: { type: "order.canceled" } }, makeRecord({ status: "canceled" }), {
       ...rawSettings,
@@ -188,8 +188,8 @@ describe("order-events order sync", () => {
     await orderEvents(req);
 
     const urls = fetchMock.mock.calls.map((call) => callOf(call).url);
-    expect(urls).toEqual(["https://api.brevo.com/v3/events", "https://api.brevo.com/v3/orders/status"]);
-    expect(callOf(fetchMock.mock.calls[1]).body.status).toBe("canceled");
+    expect(urls).toEqual(["https://api.brevo.com/v3/orders/status", "https://api.brevo.com/v3/events"]);
+    expect(callOf(fetchMock.mock.calls[0]).body.status).toBe("canceled");
   });
 
   it("still syncs the order when the event is turned off", async () => {
@@ -207,7 +207,7 @@ describe("order-events order sync", () => {
   });
 
   it("syncs the order even when the event fails", async () => {
-    const fetchMock = mockFetch({ status: 400, body: { message: "bad event" } }, { status: 204 });
+    const fetchMock = mockFetch({ status: 204 }, { status: 400, body: { message: "bad event" } });
     const { req } = request({ id: "rec_1", $event: { type: "order.submitted" } }, makeRecord(), {
       ...rawSettings,
       sync_orders: true,
@@ -217,6 +217,42 @@ describe("order-events order sync", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(errorSpy).toHaveBeenCalledWith("Brevo: order.submitted for order rec_1 failed:", expect.any(String));
+  });
+
+  it("sends the event even when the order sync is rejected", async () => {
+    const fetchMock = mockFetch({ status: 400, body: { message: "bad order" } }, { status: 204 });
+    const { req } = request({ id: "rec_1", $event: { type: "order.submitted" } }, makeRecord(), {
+      ...rawSettings,
+      sync_orders: true,
+    });
+
+    await orderEvents(req);
+
+    expect(callOf(fetchMock.mock.calls[1]).url).toBe("https://api.brevo.com/v3/events");
+    expect(errorSpy).toHaveBeenCalledWith("Brevo: order sync for order rec_1 failed:", "Brevo 400: bad order");
+  });
+
+  it("does not send the event when the order sync must be retried", async () => {
+    const fetchMock = mockFetch({ status: 503, body: { message: "down" } });
+    const { req } = request({ id: "rec_1", $event: { type: "order.submitted" } }, makeRecord(), {
+      ...rawSettings,
+      sync_orders: true,
+    });
+
+    await expect(orderEvents(req)).rejects.toMatchObject({ status: 503 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(callOf(fetchMock.mock.calls[0]).url).toBe("https://api.brevo.com/v3/orders/status");
+  });
+
+  it("rethrows a retryable event failure after the order sync", async () => {
+    const fetchMock = mockFetch({ status: 204 }, { status: 429, body: { message: "slow down" } });
+    const { req } = request({ id: "rec_1", $event: { type: "order.submitted" } }, makeRecord(), {
+      ...rawSettings,
+      sync_orders: true,
+    });
+
+    await expect(orderEvents(req)).rejects.toMatchObject({ status: 429 });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

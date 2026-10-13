@@ -26,16 +26,18 @@ export default async function (req: SwellRequest) {
     return;
   }
 
-  // event and order sync are independent: one failing does not skip the other
-  const results = await Promise.allSettled([
-    trackEvent(eventType, order, settings),
-    syncOrder(order, settings),
-  ]);
+  // event and order sync are independent: one failing does not skip the other.
+  // The order sync is an upsert, so it runs first: a retryable failure there is thrown before the event
+  // is sent, and a retry after a failed event only repeats the upsert. The event is never sent twice.
+  try {
+    await syncOrder(order, settings);
+  } catch (err) {
+    handleError(`order sync for order ${data.id}`, err);
+  }
 
-  const labels = [`${eventType} for order ${data.id}`, `order sync for order ${data.id}`];
-  results.forEach((result, i) => {
-    if (result.status === 'rejected') {
-      handleError(labels[i], result.reason);
-    }
-  });
+  try {
+    await trackEvent(eventType, order, settings);
+  } catch (err) {
+    handleError(`${eventType} for order ${data.id}`, err);
+  }
 }

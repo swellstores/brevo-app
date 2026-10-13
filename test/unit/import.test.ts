@@ -105,9 +105,20 @@ describe("importToList", () => {
 
   it("does nothing without accounts or list", async () => {
     const fetchMock = mockFetch();
-    await importToList([], makeSettings());
-    await importToList([optedIn("a")], makeSettings({ list_id: null }));
+    expect(await importToList([], makeSettings())).toBe(0);
+    expect(await importToList([optedIn("a")], makeSettings({ list_id: null }))).toBe(0);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("counts the page as failed when Brevo rejects the job", async () => {
+    mockFetch({ status: 404, body: { message: "List not found" } });
+    expect(await importToList([optedIn("a"), optedIn("b")], makeSettings())).toBe(2);
+    expect(errorSpy).toHaveBeenCalledWith("Brevo: import job for 2 contacts failed:", "Brevo 404: List not found");
+  });
+
+  it("throws retryable failures so the page is retried", async () => {
+    mockFetch({ status: 503, body: { message: "down" } });
+    await expect(importToList([optedIn("a")], makeSettings())).rejects.toMatchObject({ status: 503 });
   });
 });
 
@@ -144,6 +155,17 @@ describe("importPage", () => {
       "https://api.brevo.com/v3/contacts/import",
       "https://api.brevo.com/v3/contacts",
     ]);
+  });
+
+  it("continues with one-by-one upserts when the import job is rejected", async () => {
+    const fetchMock = mockFetch({ status: 400, body: { message: "bad list" } }, { status: 204 });
+    expect(await importPage([optedIn("a"), optedIn("b"), notOptedIn("c")], makeSettings(), false)).toEqual({
+      imported: 0,
+      upserted: 1,
+      skipped: 0,
+      failed: 2,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("subtracts failures from upserted", async () => {
@@ -193,7 +215,9 @@ describe("import-customers workflow", () => {
     const { req, get } = makeReq([], {});
     const { step } = makeStep();
 
-    expect(await new ImportCustomers().run(req, step)).toEqual({ error: "missing_api_key" });
+    await expect(new ImportCustomers().run(req, step)).rejects.toThrow(
+      "Import not started: add your Brevo API key in the app settings.",
+    );
     expect(get).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -203,7 +227,9 @@ describe("import-customers workflow", () => {
     const { req, get } = makeReq([[optedIn("a")]], { ...rawSettings, enabled: false });
     const { step, names } = makeStep();
 
-    expect(await new ImportCustomers().run(req, step)).toEqual({ error: "disabled" });
+    await expect(new ImportCustomers().run(req, step)).rejects.toThrow(
+      "Import not started: the Brevo app is disabled in its settings.",
+    );
     expect(names).toEqual(["load settings"]);
     expect(get).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -220,12 +246,40 @@ describe("import-customers workflow", () => {
       .mockResolvedValue({ brevo: { ...rawSettings, enabled: false } });
     const { step, names } = makeStep();
 
-    const totals = await new ImportCustomers().run(req, step);
-
-    expect(totals).toEqual({ imported: PAGE_SIZE, upserted: 0, skipped: 0, failed: 0, error: "disabled" });
+    await expect(new ImportCustomers().run(req, step)).rejects.toThrow(
+      `Import stopped: the app was disabled in settings. Before stopping: added to list ${PAGE_SIZE}, ` +
+        "synced 0, skipped 0, failed 0.",
+    );
     expect(names).toEqual(["load settings", "page 1", "page 2"]);
     expect(get).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops sending when the API key is removed during the import", async () => {
+    const fetchMock = mockFetch();
+    const { req, get } = makeReq([[optedIn("a")]]);
+    (req.swell.settings as any)
+      .mockResolvedValueOnce({ brevo: rawSettings })
+      .mockResolvedValue({ brevo: { ...rawSettings, api_key: "" } });
+    const { step } = makeStep();
+
+    await expect(new ImportCustomers().run(req, step)).rejects.toThrow(
+      "Import stopped: the API key was removed from settings.",
+    );
+    expect(get).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the API key out of step output", async () => {
+    mockFetch({ status: 202, body: { processId: 1 } });
+    const { req } = makeReq([[optedIn("a")]]);
+    const { step } = makeStep();
+
+    await new ImportCustomers().run(req, step);
+
+    const outputs = await Promise.all((step.do as any).mock.results.map((r: any) => r.value));
+    expect(outputs[0]).toEqual({ enabled: true, has_api_key: true });
+    expect(JSON.stringify(outputs)).not.toContain(rawSettings.api_key);
   });
 
   it("pages through all accounts and returns totals", async () => {

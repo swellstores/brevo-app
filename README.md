@@ -57,7 +57,7 @@ With **Sync orders to Brevo eCommerce** on, `order-events.ts` also sends the ord
 | Brevo field     | Swell value                                    |
 | --------------- | ---------------------------------------------- |
 | `id`            | order `number` (falls back to `id`)            |
-| `status`        | order `status` (e.g. `pending`, `delivered`, `canceled`) |
+| `status`        | order `status` (`pending`, `payment_pending`, `delivery_pending`, `hold`, `complete` or `canceled`) |
 | `amount`        | `grand_total`                                  |
 | `createdAt`     | `date_created`                                 |
 | `updatedAt`     | `date_updated`                                 |
@@ -66,29 +66,38 @@ With **Sync orders to Brevo eCommerce** on, `order-events.ts` also sends the ord
 | `coupons`       | `[coupon_code]` when set                       |
 
 Order sync runs even if the matching event toggle is off, and an event failure does not stop the order sync (or the other way round).
+The order is synced before the event is sent. When Brevo is unavailable (network error, HTTP 429 or 5xx), Swell retries the
+function: a retry repeats the order sync, which updates the same order, but never re-sends an event that already went through.
 
 ### Import existing customers
 
 **Apps → Brevo → Actions → Import existing customers** starts the `functions/import-customers.ts` workflow, which syncs every
 customer account that already exists in Swell. It runs in the background; the dashboard shows the run's status and when it ends.
 
-- The import does not start when **Enabled** is off, and the setting is checked again before each page, so turning the
-  app off stops a running import (the run returns `error: 'disabled'` with the totals sent so far).
+- With **Enabled** off or no API key, the import doesn't start and the run fails with the reason.
+- Settings are read again at the start of each page. Turning the app off (or removing the API key) during an import lets the
+  page being sent finish, then stops before the next page; the run fails with the totals sent until then.
+- Settings, including the API key, are never stored in the run's step output.
 - Accounts are read 100 at a time, oldest first (`id` cursor, `functions/lib/import.ts`). Each page is one durable workflow step,
   retried up to 5 times with exponential backoff (starting at 30 s) on network errors, HTTP 429 and 5xx.
-- Accounts with `email_optin: true` are added to **Email list ID** with one [Brevo import job](https://developers.brevo.com/reference/import-contacts)
+- Accounts with `email_optin: true` are queued for **Email list ID** with one [Brevo import job](https://developers.brevo.com/reference/import-contacts)
   per page (`updateExistingContacts: true`, `emptyContactsAttributes: false`, so existing Brevo values are not erased).
+  Brevo processes the job after the page ends, and the app doesn't read its result: contacts Brevo skips inside the job are
+  still counted as added to list. Brevo's import report shows those.
 - Other accounts, and all accounts when no list is set, are created or updated one by one, 5 at a time, exactly like contact sync
   (no list for customers without opt-in).
 - The modal option **Only customers who opted in to email** skips accounts without `email_optin: true`.
-- Accounts without an email are skipped. Contacts Brevo rejects (e.g. invalid email) are logged and counted as failed; the import continues.
-- When it finishes, the workflow logs and returns the totals: added to list, synced one by one, skipped and failed.
+- Accounts without an email are skipped. Contacts Brevo rejects one by one (e.g. invalid email) are logged and counted as failed.
+  If Brevo rejects a page's import job (HTTP 4xx other than 429, e.g. the list was deleted), the page's opted-in accounts are
+  logged and counted as failed. In both cases the import continues.
+- When it finishes, the workflow logs and returns the totals: added to list (queued in import jobs), synced one by one, skipped and failed.
 - The action is hidden while **Sync customer accounts** is off. Running it again is safe: contacts are updated, not duplicated.
 
 ### Test connection
 
 **Apps → Brevo → Actions → Test connection** (`functions/test-connection.ts`) checks the API key (`GET /v3/account`) and the
-email list (`GET /v3/contacts/lists/{id}`) and shows the account name and list name.
+email list (`GET /v3/contacts/lists/{id}`) and shows the account name and list name. The list is reported as not found only on HTTP 404;
+other errors (e.g. rate limit or network) are shown with Brevo's message.
 
 ## Settings
 

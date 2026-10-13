@@ -379,7 +379,13 @@ export async function testConnection(settings: BrevoSettings): Promise<string> {
       const list = await brevoRequest(settings.api_key, 'GET', `/contacts/lists/${settings.list_id}`);
       notes.push(`Email list: ${list?.name || settings.list_id} (#${settings.list_id}).`);
     } catch (err) {
-      notes.push(`Email list #${settings.list_id} was not found in Brevo.`);
+      // only a 404 means the list doesn't exist; rate limits, network errors and the rest are reported as they are
+      if (err instanceof BrevoError && err.status === 404) {
+        notes.push(`Email list #${settings.list_id} was not found in Brevo.`);
+      } else {
+        const reason = err instanceof Error ? err.message : String(err);
+        notes.push(`Email list #${settings.list_id} could not be checked, try again: ${reason}`);
+      }
     }
   } else {
     notes.push('No email list is set, so opted-in customers are not added to a list.');

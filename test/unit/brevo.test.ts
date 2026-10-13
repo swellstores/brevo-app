@@ -577,6 +577,19 @@ describe("testConnection", () => {
     expect(await testConnection(makeSettings())).toBe("Connected to Brevo as me@acme.com. Email list #7 was not found in Brevo.");
   });
 
+  it("does not report a rate limit or network error as a missing list", async () => {
+    mockFetch({ status: 200, body: { companyName: "Acme" } }, { status: 429, body: { message: "Too many requests" } });
+    expect(await testConnection(makeSettings())).toBe(
+      "Connected to Brevo as Acme. Email list #7 could not be checked, try again: Brevo 429: Too many requests",
+    );
+
+    vi.restoreAllMocks();
+    mockFetch({ status: 200, body: { companyName: "Acme" } }, new Error("connection reset"));
+    expect(await testConnection(makeSettings())).toBe(
+      "Connected to Brevo as Acme. Email list #7 could not be checked, try again: Brevo 0 network_error: connection reset",
+    );
+  });
+
   it("notes when no list is set", async () => {
     mockFetch({ status: 200, body: {} });
     expect(await testConnection(makeSettings({ list_id: null }))).toBe(
