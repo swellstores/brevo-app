@@ -1,38 +1,38 @@
 {
-  "description": "Brevo email and SMS marketing integration",
-  "id": "brevo",
-  "name": "Brevo",
-  "type": "integration",
-  "version": "1.0.0",
-  "permissions": [],
-  "support_email": "support@swell.is",
-  "integrations": [
-    "brevo"
-  ],
-  "images": [
-    {
-      "id": "settings",
-      "title": "Connected in a few minutes",
-      "description": "Paste your Brevo API key, turn the app on, and you're syncing.",
-      "image_src": "assets/screenshots/1-settings.png"
-    },
-    {
-      "id": "contacts",
-      "title": "Contacts that stay in sync",
-      "description": "Customers become Brevo contacts, and email opt-ins join your list.",
-      "image_src": "assets/screenshots/2-contacts.png"
-    },
-    {
-      "id": "import-customers",
-      "title": "Bring in every customer",
-      "description": "Import existing customer accounts as Brevo contacts in one click.",
-      "image_src": "assets/screenshots/3-import-customers.png"
-    },
-    {
-      "id": "workflows",
-      "title": "Every import, on record",
-      "description": "Each run shows its status, who started it and how long it took.",
-      "image_src": "assets/screenshots/4-workflows.png"
-    }
-  ]
+	"description": "Brevo email and SMS marketing integration",
+	"id": "brevo",
+	"name": "Brevo",
+	"type": "integration",
+	"version": "1.0.0",
+	"permissions": [],
+	"support_email": "support@swell.is",
+	"integrations": [
+		"brevo"
+	],
+	"images": [
+		{
+			"id": "settings",
+			"title": "Connected in a few minutes",
+			"description": "Paste your Brevo API key, turn the app on, and you're syncing.",
+			"image_src": "assets/screenshots/1-settings.png"
+		},
+		{
+			"id": "contacts",
+			"title": "Contacts that stay in sync",
+			"description": "Customers become Brevo contacts, and email opt-ins join your list.",
+			"image_src": "assets/screenshots/2-contacts.png"
+		},
+		{
+			"id": "import-customers",
+			"title": "Bring in every customer",
+			"description": "Import existing customer accounts as Brevo contacts in one click.",
+			"image_src": "assets/screenshots/3-import-customers.png"
+		},
+		{
+			"id": "workflows",
+			"title": "Every import, on record",
+			"description": "Each run shows its status, who started it and how long it took.",
+			"image_src": "assets/screenshots/4-workflows.png"
+		}
+	]
 }
