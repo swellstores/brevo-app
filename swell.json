@@ -8,28 +8,28 @@
   "support_email": "support@swell.is",
   "images": [
     {
-      "id": "1-settings",
-      "title": "Settings",
-      "description": "Connect your Brevo account with an API key and choose what to sync",
+      "id": "settings",
+      "title": "Connected in a few minutes",
+      "description": "Paste your Brevo API key, turn the app on, and you're syncing.",
       "image_src": "assets/screenshots/1-settings.png"
     },
     {
-      "id": "2-contacts",
-      "title": "Contacts",
-      "description": "Customers become Brevo contacts, and email opt-ins join your list",
+      "id": "contacts",
+      "title": "Contacts that stay in sync",
+      "description": "Customers become Brevo contacts, and email opt-ins join your list.",
       "image_src": "assets/screenshots/2-contacts.png"
     },
     {
-      "id": "3-events",
-      "title": "Events",
-      "description": "Trigger Brevo automations from checkout_started, cart_abandoned, order_submitted, order_fulfilled and order_canceled",
-      "image_src": "assets/screenshots/3-events.png"
+      "id": "import-customers",
+      "title": "Bring in every customer",
+      "description": "Import existing customer accounts as Brevo contacts in one click.",
+      "image_src": "assets/screenshots/3-import-customers.png"
     },
     {
-      "id": "4-ecommerce",
-      "title": "eCommerce",
-      "description": "Send orders to Brevo eCommerce for revenue reporting and segmentation",
-      "image_src": "assets/screenshots/4-ecommerce.png"
+      "id": "workflows",
+      "title": "Every import, on record",
+      "description": "Each run shows its status, who started it and how long it took.",
+      "image_src": "assets/screenshots/4-workflows.png"
     }
   ]
 }
