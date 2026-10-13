@@ -15,6 +15,14 @@ export default async function (req: SwellRequest) {
   try {
     return { message: await testConnection(settings) };
   } catch (err) {
+    if (err instanceof BrevoError && err.ipBlocked) {
+      return {
+        message:
+          'Brevo blocked the request because it came from an IP address that is not authorized. ' +
+          'Swell has no fixed IP addresses to add, so turn off blocking of unknown IP addresses in ' +
+          'Brevo → Security → Authorized IPs, then run Test connection again.',
+      };
+    }
     if (err instanceof BrevoError && err.status === 401) {
       return { message: 'Brevo rejected the API key. Check it in Brevo → Settings → SMTP & API → API Keys.' };
     }

@@ -54,6 +54,11 @@ describe("BrevoError", () => {
   ])("status %i retryable=%s", (status, retryable) => {
     expect(new BrevoError(status, undefined, "x").retryable).toBe(retryable);
   });
+  it("recognizes a 401 from Authorized IPs", () => {
+    expect(new BrevoError(401, "unauthorized", "We have detected you are using an unrecognised IP address 104.28.1.2. If you performed this action make sure to add the new IP address in this link: https://app.brevo.com/security/authorised_ips").ipBlocked).toBe(true);
+    expect(new BrevoError(401, "unauthorized", "Key not found").ipBlocked).toBe(false);
+    expect(new BrevoError(400, undefined, "invalid IP address").ipBlocked).toBe(false);
+  });
 });
 
 describe("EVENTS", () => {

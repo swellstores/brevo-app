@@ -99,6 +99,11 @@ customer account that already exists in Swell. It runs in the background; the da
 email list (`GET /v3/contacts/lists/{id}`) and shows the account name and list name. The list is reported as not found only on HTTP 404;
 other errors (e.g. rate limit or network) are shown with Brevo's message.
 
+A 401 whose message mentions an IP address (or `authorised_ips`) comes from Brevo's
+[Authorized IPs](https://app.brevo.com/security/authorised_ips) check, not a bad key (`BrevoError.ipBlocked` in
+`functions/lib/brevo.ts`). Test connection then tells the merchant to turn off blocking of unknown IP addresses instead of
+replacing the key. Any other 401 is reported as a rejected API key.
+
 ## Settings
 
 All credentials and options are set by the merchant in the app settings (`settings/brevo.json`) and are never stored in code.
@@ -167,6 +172,11 @@ Settings actions (`actions` in `settings/brevo.json`):
 
 ## Limits and known behavior
 
+- **Brevo Authorized IPs must be off for API keys.** Brevo blocks API calls from unknown IP addresses with HTTP 401, and the
+  feature is on by default for accounts created since May 2024. Swell functions and workflows run on Cloudflare Workers
+  without fixed outbound IPs, so there is no IP to authorize: the merchant must turn off blocking in
+  **Brevo → Security → Authorized IPs**. While it's on, every call fails: syncs and events log the 401, and the import counts
+  each contact as failed.
 - **Email is the identifier.** When a customer changes their email, a new Brevo contact is created for the new address and the old one stays.
 - **Import covers customers only.** Past carts and orders are not sent as events or eCommerce orders; only accounts are imported.
 - **Import list jobs run asynchronously in Brevo.** The workflow queues them and does not wait for the result; rows Brevo rejects

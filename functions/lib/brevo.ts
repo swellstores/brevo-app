@@ -35,6 +35,11 @@ export class BrevoError extends Error {
   get retryable(): boolean {
     return this.status === 0 || this.status === 429 || this.status >= 500;
   }
+
+  // 401 from Brevo's Authorized IPs check: the key is valid, but the caller's IP isn't on the allowlist
+  get ipBlocked(): boolean {
+    return this.status === 401 && /\bIP\b|authori[sz]ed_ips/i.test(this.message);
+  }
 }
 
 // Swell event → Brevo event name and the setting that turns it on

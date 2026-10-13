@@ -287,6 +287,22 @@ describe("test-connection", () => {
     expect(result.message).toContain("Brevo rejected the API key");
   });
 
+  it("explains a request blocked by Authorized IPs", async () => {
+    mockFetch({
+      status: 401,
+      body: {
+        code: "unauthorized",
+        message: "We have detected you are using an unrecognised IP address 104.28.1.2. If you performed this action make sure to add the new IP address in this link: https://app.brevo.com/security/authorised_ips",
+      },
+    });
+    const result = await testConnectionFn(actionRequest(rawSettings));
+    expect(result.message).toBe(
+      "Brevo blocked the request because it came from an IP address that is not authorized. " +
+        "Swell has no fixed IP addresses to add, so turn off blocking of unknown IP addresses in " +
+        "Brevo → Security → Authorized IPs, then run Test connection again.",
+    );
+  });
+
   it("reports other failures", async () => {
     mockFetch({ status: 500, body: { message: "Internal error" } });
     const result = await testConnectionFn(actionRequest(rawSettings));
