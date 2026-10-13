@@ -162,8 +162,7 @@ Settings actions (`actions` in `settings/brevo.json`):
 - **Import covers customers only.** Past carts and orders are not sent as events or eCommerce orders; only accounts are imported.
 - **Import list jobs run asynchronously in Brevo.** The workflow queues them and does not wait for the result; rows Brevo rejects
   (e.g. a duplicate SMS number) appear only in Brevo's import report, not in the workflow totals.
-- **Import of very large stores.** Each page of 100 accounts is one workflow step; stores with more than ~100,000 customers have not been tested
-  and may reach the platform's step limit.
+- **Import of very large stores.** Each page of 100 accounts is one workflow step.
 - **Workflows don't run under `swell app dev`.** The import always runs the pushed version.
 - **Guest carts without email are skipped.** Brevo needs an identifier, so carts and orders with no linked account email send no event or order.
 - **No event de-duplication.** Brevo events have no unique ID; if Swell redelivers an event (for example after a retry), Brevo records it again.
@@ -192,8 +191,8 @@ functions/
   lib/import.ts       # account paging and bulk import for the workflow
   lib/phone.ts        # E.164 phone formatting
 settings/brevo.json   # merchant settings and the Test connection action
-assets/icon.png       # app icon (placeholder)
-assets/screenshots/   # listing screenshots (placeholders, referenced by `images` in swell.json)
+assets/icon.png       # app icon (official Brevo logo)
+assets/screenshots/   # listing screenshots, referenced by `images` in swell.json
 test/unit/            # vitest unit tests (Brevo API mocked)
 test/integration/     # vitest tests against the store using CLI auth
 ```

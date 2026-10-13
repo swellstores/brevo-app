@@ -6,6 +6,9 @@
   "version": "1.0.0",
   "permissions": [],
   "support_email": "support@swell.is",
+  "integrations": [
+    "brevo"
+  ],
   "images": [
     {
       "id": "settings",
