@@ -198,6 +198,36 @@ describe("import-customers workflow", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("stops when the app is disabled", async () => {
+    const fetchMock = mockFetch();
+    const { req, get } = makeReq([[optedIn("a")]], { ...rawSettings, enabled: false });
+    const { step, names } = makeStep();
+
+    expect(await new ImportCustomers().run(req, step)).toEqual({ error: "disabled" });
+    expect(names).toEqual(["load settings"]);
+    expect(get).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("stops sending when the app is disabled during the import", async () => {
+    const fetchMock = mockFetch({ status: 202, body: { processId: 1 } });
+    const full = Array.from({ length: PAGE_SIZE }, (_, i) => optedIn(`a${String(i).padStart(3, "0")}`));
+    const { req, get } = makeReq([full, [optedIn("z1")]]);
+    const settings = req.swell.settings as any;
+    settings
+      .mockResolvedValueOnce({ brevo: rawSettings })
+      .mockResolvedValueOnce({ brevo: rawSettings })
+      .mockResolvedValue({ brevo: { ...rawSettings, enabled: false } });
+    const { step, names } = makeStep();
+
+    const totals = await new ImportCustomers().run(req, step);
+
+    expect(totals).toEqual({ imported: PAGE_SIZE, upserted: 0, skipped: 0, failed: 0, error: "disabled" });
+    expect(names).toEqual(["load settings", "page 1", "page 2"]);
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("pages through all accounts and returns totals", async () => {
     mockFetch({ status: 202, body: { processId: 1 } });
     const full = Array.from({ length: PAGE_SIZE }, (_, i) => optedIn(`a${String(i).padStart(3, "0")}`));

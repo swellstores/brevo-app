@@ -72,6 +72,8 @@ Order sync runs even if the matching event toggle is off, and an event failure d
 **Apps → Brevo → Actions → Import existing customers** starts the `functions/import-customers.ts` workflow, which syncs every
 customer account that already exists in Swell. It runs in the background; the dashboard shows the run's status and when it ends.
 
+- The import does not start when **Enabled** is off, and the setting is checked again before each page, so turning the
+  app off stops a running import (the run returns `error: 'disabled'` with the totals sent so far).
 - Accounts are read 100 at a time, oldest first (`id` cursor, `functions/lib/import.ts`). Each page is one durable workflow step,
   retried up to 5 times with exponential backoff (starting at 30 s) on network errors, HTTP 429 and 5xx.
 - Accounts with `email_optin: true` are added to **Email list ID** with one [Brevo import job](https://developers.brevo.com/reference/import-contacts)
@@ -103,11 +105,11 @@ Functions read them with `getSettings` (`functions/lib/brevo.ts`), which applies
 | `sync_sms`               | toggle | no       | off         | Set the `SMS` attribute for customers with `sms_optin: true`.               |
 | `firstname_attribute`    | text   | no       | `FIRSTNAME` | Brevo attribute for the first name (upper-cased). Use e.g. `PRENOM` for French accounts. |
 | `lastname_attribute`     | text   | no       | `LASTNAME`  | Brevo attribute for the last name (upper-cased).                            |
-| `event_checkout_started` | toggle | no       | on          | Send `checkout_started`.                                                    |
-| `event_cart_abandoned`   | toggle | no       | on          | Send `cart_abandoned`.                                                      |
-| `event_order_submitted`  | toggle | no       | on          | Send `order_submitted`.                                                     |
-| `event_order_fulfilled`  | toggle | no       | on          | Send `order_fulfilled`.                                                     |
-| `event_order_canceled`   | toggle | no       | on          | Send `order_canceled`.                                                      |
+| `event_checkout_started` | toggle | no       | on          | "Checkout started": send `checkout_started`.                                                    |
+| `event_cart_abandoned`   | toggle | no       | on          | "Cart abandoned": send `cart_abandoned`.                                                      |
+| `event_order_submitted`  | toggle | no       | on          | "Order placed": send `order_submitted`.                                                     |
+| `event_order_fulfilled`  | toggle | no       | on          | "Order delivered": send `order_fulfilled`.                                                     |
+| `event_order_canceled`   | toggle | no       | on          | "Order canceled": send `order_canceled`.                                                      |
 | `sync_orders`            | toggle | no       | off         | Send orders to Brevo eCommerce.                                             |
 
 Settings actions (`actions` in `settings/brevo.json`):

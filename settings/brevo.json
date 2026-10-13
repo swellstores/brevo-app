@@ -114,43 +114,43 @@
       "fields": [
         {
           "id": "event_checkout_started",
-          "label": "checkout_started",
+          "label": "Checkout started",
           "type": "boolean",
           "ui": "toggle",
           "default": true,
-          "description": "Sent when a cart is created"
+          "description": "Sent to Brevo as checkout_started when a cart is created"
         },
         {
           "id": "event_cart_abandoned",
-          "label": "cart_abandoned",
+          "label": "Cart abandoned",
           "type": "boolean",
           "ui": "toggle",
           "default": true,
-          "description": "Sent when a cart is abandoned"
+          "description": "Sent to Brevo as cart_abandoned when a cart is abandoned"
         },
         {
           "id": "event_order_submitted",
-          "label": "order_submitted",
+          "label": "Order placed",
           "type": "boolean",
           "ui": "toggle",
           "default": true,
-          "description": "Sent when an order is placed"
+          "description": "Sent to Brevo as order_submitted when an order is placed"
         },
         {
           "id": "event_order_fulfilled",
-          "label": "order_fulfilled",
+          "label": "Order delivered",
           "type": "boolean",
           "ui": "toggle",
           "default": true,
-          "description": "Sent when an order is delivered"
+          "description": "Sent to Brevo as order_fulfilled when an order is delivered"
         },
         {
           "id": "event_order_canceled",
-          "label": "order_canceled",
+          "label": "Order canceled",
           "type": "boolean",
           "ui": "toggle",
           "default": true,
-          "description": "Sent when an order is canceled"
+          "description": "Sent to Brevo as order_canceled when an order is canceled"
         }
       ]
     },

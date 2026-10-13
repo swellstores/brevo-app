@@ -14,6 +14,11 @@ export default class ImportCustomers {
     const rawSettings = await step.do('load settings', async () => req.swell.settings());
     const settings = getSettings(rawSettings);
 
+    if (!settings.enabled) {
+      console.log('Brevo: import skipped, the app is disabled in settings');
+      return { error: 'disabled' };
+    }
+
     if (!settings.api_key) {
       console.error('Brevo: import skipped, missing API key in app settings');
       return { error: 'missing_api_key' };
@@ -28,11 +33,20 @@ export default class ImportCustomers {
         `page ${page}`,
         { retries: { limit: 5, delay: '30 seconds', backoff: 'exponential' } },
         async () => {
+          // stop sending if the app was disabled while the import was running
+          if (!getSettings(await req.swell.settings()).enabled) {
+            return { ...emptyStats(), count: 0, last_id: null, disabled: true };
+          }
           const accounts = await fetchAccounts(req.swell, afterId);
           const stats = await importPage(accounts, settings, onlyOptin);
           return { ...stats, count: accounts.length, last_id: accounts[accounts.length - 1]?.id ?? null };
         },
       );
+
+      if (result.disabled) {
+        console.log(`Brevo: import stopped at page ${page}, the app was disabled in settings`);
+        return { ...totals, error: 'disabled' };
+      }
 
       totals = addStats(totals, result);
       lastId = result.last_id;

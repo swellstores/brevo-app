@@ -51,6 +51,16 @@ describe("contact-sync", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("does nothing when the app is disabled", async () => {
+    const fetchMock = mockFetch();
+    const { req, get } = request({ id: "acc_1" }, makeAccount(), { ...rawSettings, enabled: false });
+
+    await contactSync(req);
+
+    expect(get).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("does nothing without an API key", async () => {
     const fetchMock = mockFetch();
     const { req, get } = request({ id: "acc_1" }, makeAccount(), {});

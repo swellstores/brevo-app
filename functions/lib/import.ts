@@ -18,6 +18,8 @@ export interface ImportStats {
 export interface PageResult extends ImportStats {
   count: number;
   last_id: string | null;
+  // set when the app was disabled before the page was sent
+  disabled?: boolean;
 }
 
 export function emptyStats(): ImportStats {
