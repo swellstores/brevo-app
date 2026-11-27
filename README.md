@@ -249,3 +249,7 @@ To try the functions end to end, set an API key in the test environment, then cr
 4. Add tests and update the tables in this README.
 
 Logs are also available in the dashboard under **Developer → Console → Logs**.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
